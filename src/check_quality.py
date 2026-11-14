@@ -67,6 +67,27 @@ check(f"Pas plus de {int(MAX_LOSS * 100)} % du texte perdu au nettoyage", f"""
     GROUP BY d.filename
     HAVING SUM(p.n_chars) > 0
        AND SUM(c.n_chars_clean) * 1.0 / SUM(p.n_chars) < {1 - MAX_LOSS}""")
+check("Aucune fausse puce (I, >, o) restante en début de ligne", r"""
+    SELECT d.filename, p.page_number
+    FROM pages_clean p JOIN documents d USING (doc_id)
+    WHERE regexp_matches(p.text_clean, '(^|\n)(I|>|o)[ ]+[A-Za-zÀ-ÿ]')""")
+check("Chaque document a des morceaux (chunks)", """
+    SELECT filename FROM documents
+    WHERE doc_id NOT IN (SELECT DISTINCT doc_id FROM chunks)""")
+check("Aucun chunk_id en double", """
+    SELECT chunk_id, COUNT(*) FROM chunks GROUP BY chunk_id HAVING COUNT(*) > 1""")
+check("Aucun morceau vide", """
+    SELECT chunk_id FROM chunks WHERE text IS NULL OR n_chars = 0""")
+check("Tous les morceaux appartiennent à un document connu", """
+    SELECT DISTINCT doc_id FROM chunks WHERE doc_id NOT IN (SELECT doc_id FROM documents)""")
+check("Pages de début et de fin cohérentes", """
+    SELECT chunk_id FROM chunks WHERE page_start > page_end""")
+check("Les pages citées par les morceaux existent", """
+    SELECT c.chunk_id FROM chunks c
+    WHERE NOT EXISTS (SELECT 1 FROM pages_clean p
+                      WHERE p.doc_id = c.doc_id AND p.page_number = c.page_start)
+       OR NOT EXISTS (SELECT 1 FROM pages_clean p
+                      WHERE p.doc_id = c.doc_id AND p.page_number = c.page_end)""")
 check("Chaque document a des métadonnées", """
     SELECT filename FROM documents
     WHERE doc_id NOT IN (SELECT doc_id FROM document_metadata)""")

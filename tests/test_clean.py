@@ -27,6 +27,17 @@ def test_puces_converties_en_liste():
     assert out == "Liste :\n- Premier point\n- Second point"
 
 
+def test_fausse_puce_I_remplacee():
+    # le « I » en début de ligne est une puce mal extraite
+    out = clean_text("Critères :\nI Pertinence des attributs\nI Mise à jour des sources")
+    assert out == "Critères :\n- Pertinence des attributs\n- Mise à jour des sources"
+
+
+def test_vrais_mots_commencant_par_I_conserves():
+    assert clean_text("Voir la norme\nIGI 1300 applicable") == "Voir la norme IGI 1300 applicable"
+    assert clean_text("Le système I Alpha reste") == "Le système I Alpha reste"  # pas en début de ligne
+
+
 def test_caracteres_parasites():
     assert clean_text("a\x00b\u00a0c\u00adc") == "ab cc"
 

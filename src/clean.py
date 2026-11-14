@@ -7,6 +7,13 @@ from collections import Counter
 BULLETS = "•●▪■◦‣▶►◆❖✓✔➢➤"
 PRIVATE_USE = "\uf000-\uf8ff"
 LINE_START_BULLET = re.compile(rf"^[ \t]*[{re.escape(BULLETS)}{PRIVATE_USE}]+[ \t]*", re.MULTILINE)
+# Dans certains PDF, la puce de liste est extraite comme un caractère ordinaire :
+#   la lettre « I » (police Dingbats), le signe « > » ou la lettre « o » (puce de 2e niveau).
+# Ces trois caractères ont été repérés avec survey_bullets.py : ils apparaissent en début de
+# ligne, suivis d'un espace puis d'une lettre ("I Pertinence...", "> des topologies...",
+# "o Connaître..."). Le « (?=...) » vérifie qu'une lettre suit, sans la consommer.
+# On ne touche donc pas à "IGI 1300", "ISO" ou "oui" (pas d'espace après la lettre).
+FAKE_BULLET = re.compile(r"^(?:I|>|o)[ \t]+(?=[^\W\d_])", re.MULTILINE)
 STRAY_SYMBOLS = re.compile(rf"[{re.escape(BULLETS)}{PRIVATE_USE}]")
 CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 HYPHEN_BREAK = re.compile(r"(?<=[a-zà-ÿ])-[ \t]*\n[ \t]*(?=[a-zà-ÿ])")
@@ -27,6 +34,7 @@ def clean_text(text: str) -> str:
     # puces en début de ligne -> "- ", puces isolées ailleurs -> espace
     text = LINE_START_BULLET.sub("- ", text)
     text = STRAY_SYMBOLS.sub(" ", text)
+    text = FAKE_BULLET.sub("- ", text)
     # mots coupés en fin de ligne : "sécu-\nrité" -> "sécurité"
     text = HYPHEN_BREAK.sub("", text)
     # tiret légitime coupé avant une majuscule/un chiffre : "ISO-\n27001" -> "ISO-27001"

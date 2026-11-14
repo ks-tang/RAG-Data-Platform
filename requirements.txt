@@ -3,4 +3,6 @@ pypdf
 pandas
 fonttools
 langdetect
-pytest
+pytestfastembed==0.9.1
+numpy==2.5.4
+onnxruntime==1.32.0
