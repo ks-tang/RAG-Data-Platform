@@ -16,6 +16,7 @@ import duckdb
 import numpy as np
 
 from embedding import MODEL_NAME, embed_query, load_model, top_matches
+from retrieval import Retriever, load_reranker
 
 DB_PATH = "data/warehouse.duckdb"
 DEFAULT_CONFIG = "sentences-800-1"
@@ -48,6 +49,8 @@ def main():
     parser.add_argument("question")
     parser.add_argument("--top", type=int, default=5, help="nombre de résultats")
     parser.add_argument("--config", default=DEFAULT_CONFIG, help="réglages de découpage à interroger")
+    parser.add_argument("--mode", choices=Retriever.MODES, default="semantic",
+                        help="semantic (sens), keyword (mots), hybrid (les deux) ou rerank (hybrid + second classement)")
     args = parser.parse_args()
 
     con = duckdb.connect(DB_PATH, read_only=True)
@@ -55,11 +58,13 @@ def main():
     if not candidates:
         sys.exit("Aucun vecteur trouvé : lancez d'abord embed_chunks.py")
 
-    model = load_model()
-    results = search(candidates, embed_query(model, args.question), args.top)
+    # Le modèle n'est nécessaire que si on cherche par le sens.
+    query_vector = embed_query(load_model(), args.question) if args.mode != "keyword" else None
+    reranker = load_reranker() if args.mode == "rerank" else None
+    results = Retriever(candidates, reranker).search(args.question, query_vector, args.mode, args.top)
 
     print(f"Question : {args.question}")
-    print(f"({len(candidates)} morceaux comparés)\n")
+    print(f"(mode {args.mode}, {len(candidates)} morceaux comparés)\n")
     for rank, (score, row) in enumerate(results, start=1):
         _, filename, page_start, page_end, text, _ = row
         excerpt = text.replace("\n", " ↵ ")

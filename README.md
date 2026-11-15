@@ -53,6 +53,24 @@ Les documents du corpus sont tous publics. Pour préparer le test des droits d'a
 
 Pages nettoyées présentes pour chaque page brute, aucun texte NULL, pas de doublons, pas plus de 30 % du texte perdu au nettoyage, langue reconnue, classification valide.
 
-## Prochaines étapes
+## Évaluation de la recherche
 
-Chunking, embeddings et recherche sémantique, filtrage par niveau de classification, CI/CD (GitHub Actions), évaluation du RAG.
+Jeu de 20 questions de référence (`eval/questions.json`), un résultat étant pertinent s'il vient
+du bon document (et contient un mot-clé précis pour 5 questions). Réglages : morceaux de
+800 caractères par phrases (`sentences-800-1`), modèle `multilingual-e5-small`.
+
+| Mode | hit@1 | hit@3 | hit@5 | MRR |
+|---|---|---|---|---|
+| semantic (embeddings) | 0,80 | 0,85 | 0,85 | 0,82 |
+| keyword (BM25) | 0,70 | 0,75 | 0,80 | 0,76 |
+| hybrid (RRF) | 0,70 | 0,85 | 0,90 | 0,78 |
+| rerank (hybrid + jina-reranker-v2) | 0,70 | 0,85 | 0,95 | 0,79 |
+
+**Lecture.** Les écarts reposent sur 9 questions sur 20 (les 11 autres sont réussies au rang 1 par
+tous les modes) : un changement de rang d'une seule question déplace un indicateur de 5 points.
+Le sémantique manquait les termes rares (« agentique » : 10 des 13 morceaux de la fiche dédiée,
+aucun ailleurs) ; l'hybride les récupère. Le reranker ne gagne qu'une question de plus sur
+hit@5, pour un modèle de 1,1 Go sous licence non commerciale (CC-BY-NC) : non retenu par défaut.
+
+**Limites.** Jeu de questions petit et plutôt facile ; pertinence jugée au niveau du document,
+pas du morceau (sauf mots-clés) ; étiquettes écrites sans relecture exhaustive du corpus.
