@@ -6,6 +6,10 @@ import duckdb
 
 DB_PATH = "data/warehouse.duckdb"
 MAX_LOSS = 0.30  # alerte si plus de 30 % du texte disparaît au nettoyage
+# Réglages vérifiés pour les embeddings (à adapter si on change de modèle ou de découpage).
+EMBEDDING_MODEL = "intfloat/multilingual-e5-small"
+EMBEDDING_DIMENSIONS = 384
+CHUNK_CONFIG = "sentences-800-1"
 
 con = duckdb.connect(DB_PATH, read_only=True)
 failures = []
@@ -88,6 +92,21 @@ check("Les pages citées par les morceaux existent", """
                       WHERE p.doc_id = c.doc_id AND p.page_number = c.page_start)
        OR NOT EXISTS (SELECT 1 FROM pages_clean p
                       WHERE p.doc_id = c.doc_id AND p.page_number = c.page_end)""")
+check("Chaque morceau a un embedding à jour", f"""
+    SELECT c.chunk_id
+    FROM chunks c
+    LEFT JOIN chunk_embeddings e ON e.chunk_id = c.chunk_id AND e.model = '{EMBEDDING_MODEL}'
+    WHERE c.config = '{CHUNK_CONFIG}'
+      AND (e.chunk_id IS NULL OR e.text_hash <> sha256(c.text))""")
+check("Embeddings de la bonne dimension", f"""
+    SELECT chunk_id FROM chunk_embeddings
+    WHERE model = '{EMBEDDING_MODEL}' AND len(embedding) <> {EMBEDDING_DIMENSIONS}""")
+check("Aucun embedding en double", """
+    SELECT chunk_id, model, COUNT(*) FROM chunk_embeddings
+    GROUP BY chunk_id, model HAVING COUNT(*) > 1""")
+check("Aucun embedding orphelin (morceau supprimé)", """
+    SELECT chunk_id FROM chunk_embeddings
+    WHERE chunk_id NOT IN (SELECT chunk_id FROM chunks)""")
 check("Chaque document a des métadonnées", """
     SELECT filename FROM documents
     WHERE doc_id NOT IN (SELECT doc_id FROM document_metadata)""")
